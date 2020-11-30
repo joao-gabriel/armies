@@ -80,3 +80,7 @@
   border-radius: 110px;
   text-align: center;
 }
+
+.modal-dialog {
+  margin-top: 100px;
+}

@@ -9,6 +9,14 @@ function inArray(needle, haystack) {
     return false;
 }
 
+function setCard(card, element, index) {
+  element.find('.name').text(card.name);
+  element.find('img').attr('src', 'img/'+card.image);
+  element.find('.description').text(card.description);
+  element.find('.points').text(card.points>0 ? '+'+card.points:card.points);
+  element.attr('data-index', index);
+}
+
 /*
 GAME MECHANICS
 */
@@ -22,7 +30,9 @@ function initDeck() {
   infantaria.points = 2;
   infantaria.description = "Sem efeito especial";
   infantaria.image = "infantaria.png";
-  deck.push(infantaria, infantaria, infantaria, infantaria, infantaria, infantaria);
+  for (let i = 0; i<12; i++){
+    deck.push(infantaria);
+  }
 
   // 4 Arqueiros
   let arqueiros = { ...card }
@@ -40,7 +50,9 @@ function initDeck() {
     affectedBattlefield.bonusPoints++;
     return true;
   };
-  deck.push(arqueiros,arqueiros,arqueiros,arqueiros);
+  for (let i = 0; i<8; i++){
+    deck.push(arqueiros);
+  }
 
   // 3 Cavalarias
   let cavalaria = { ...card } 
@@ -48,23 +60,29 @@ function initDeck() {
   cavalaria.points = 3;
   cavalaria.description = "Sem efeito especial";
   cavalaria.image = "cavalaria.png";
-  deck.push(cavalaria,cavalaria,cavalaria);
+//  deck.push(cavalaria, cavalaria, cavalaria);
+  for (let i = 0; i<6; i++){
+    deck.push(cavalaria);
+  }
 
   // 2 Construtores
-  let contrutores = { ...card };
-  contrutores.name = "Construtores";
-  contrutores.points = 1;
-  contrutores.description = "Em caso de vitória, Recupera 1 ponto de dano da sua fortaleza.";
-  contrutores.image = "construtores.png";
-  contrutores.effectTiming = "afterVictory";
-  contrutores.effectCallback = function(affectedBattlefield) {
+  let construtores = { ...card };
+  construtores.name = "Construtores";
+  construtores.points = 1;
+  construtores.description = "Em caso de vitória, Recupera 1 ponto de dano da sua fortaleza.";
+  construtores.image = "construtores.png";
+  construtores.effectTiming = "afterVictory";
+  construtores.effectCallback = function(affectedBattlefield) {
     if (yourDamage > 1) {
       yourDamage--;
       return true;
     }
     return false;
   };
-  deck.push(contrutores, contrutores);
+  for (let i = 0; i<4; i++){
+    deck.push(construtores);
+  }
+  // deck.push(contrutores, contrutores);
 
   // 2 Catapultas
   let catapultas = { ...card };
@@ -80,6 +98,9 @@ function initDeck() {
     }
     return false;
   };
+  for (let i = 0; i<4; i++){
+    deck.push(catapultas);
+  }
   deck.push(catapultas, catapultas);
 
   // 4 Sabotadores
@@ -88,6 +109,9 @@ function initDeck() {
   sabotadores.description = "Sem efeito especial";  
   sabotadores.image = "sabotadores.png";
   sabotadores.points = -1;
+  for (let i = 0; i<8; i++){
+    deck.push(sabotadores);
+  }
   deck.push(sabotadores,sabotadores,sabotadores,sabotadores);
 
   // 1 Clérigo
@@ -105,12 +129,17 @@ function initDeck() {
           thisCard.name == "Cavalaria" || 
           thisCard.name == "Construtores") {
           yourDeck.push(thisCard);
+          // TODO: Retirar essa carta da pilha de descartes
+          alert("Você recuperou "+thisCard.name+"!");
           return true;
       }
     }
     return false;
   };
-  deck.push(clerigo);
+  for (let i = 0; i<6; i++){
+    deck.push(clerigo);
+  }
+  // deck.push(clerigo);
 
   // 1 Desastre
 /* TODO: fazer com que nenhuma outra carta seja contabilizada nesse turno */
@@ -125,9 +154,9 @@ function initDeck() {
     enemyBattlefield.cards[1].points = 0;
     yourBattlefield.cards[0].points = 0;
     yourBattlefield.cards[1].points = 0;
-    
     yourDamage++;
     enemyDamage++;
+    return true;
   };
 //  deck.push(desastre);  
 
@@ -195,17 +224,30 @@ function resolveBattle(yourBattlefield, enemyBattlefield){
 }
 
 function newTurn() {
+  
+  if (yourDamage > 14 || yourDeck.length < 3) {
+    alert("Você perdeu!");
+    window.location.reload();
+    return false;
+  } else if (enemyDamage  > 14 || enemyDeck.length < 3) {
+    alert("Você ganhou!");
+    window.location.reload();
+    return false;
+  }
+
   // TODO: check if decks are over
   yourBattlefield = { ...battlefield };
   enemyBattlefield = { ...battlefield };
+  
   // TODO: populate hands inside a loop to make it possible to fill hands with less than 3 cards
   yourHand = [yourDeck.pop(), yourDeck.pop(), yourDeck.pop()];
   enemyHand = [enemyDeck.pop(), enemyDeck.pop(), enemyDeck.pop()];
-  
-  $.each(yourHand, function(i, item) {
+  i=0;
+  for (item of yourHand) {
     let thisCardDiv = $('.your-hand > div:nth-child('+(i+1)+') .game-card.in-hand');
     setCard(item, thisCardDiv, i);
-  });
+    i++;
+  }
 
   $('.remaining-cards').text(yourDeck.length);
   $('.your-damage').text(yourDamage);
@@ -236,7 +278,8 @@ var card = {
   description : "",
   image: "",
   effectTiming : "", // beforeBattle, afterVictory
-  effectCallback : function() { return false; }
+  effectCallback : function() { return false; },
+  effectInterruptTurn : false
 }
 
 var battlefield = {
@@ -255,26 +298,18 @@ var battlefield = {
 }
 
 var yourDeck = shuffle(initDeck());
-var yourHand;
+var yourHand = [];
 var yourBattlefield;
 var yourDamage = 0;
 var yourDiscardPile = [];
 
 var enemyDeck = shuffle(initDeck());
-var enemyHand
-var enemyBattlefield 
+var enemyHand = [];
+var enemyBattlefield; 
 var enemyDamage = 0;
 var enemyDiscardPile = [];
 
 newTurn();
-
-function setCard(card, element, index) {
-  element.find('.name').text(card.name);
-  element.find('img').attr('src', 'img/'+card.image);
-  element.find('.description').text(card.description);
-  element.find('.points').text(card.points>0 ? '+'+card.points:card.points);
-  element.attr('data-index', index);
-}
 
 $('.game-card.in-hand').click(function(e){
   chooseYourCard($(this).data('index'));
@@ -293,5 +328,8 @@ $('.game-card.in-hand').click(function(e){
   $('.yourPoints').text(yourBattlefield.totalPoints);
   
   $('#myModal').modal('show');
-  newTurn();
 });
+
+$('#myModal').on('hidden.bs.modal', function (e) {
+  newTurn();
+})
