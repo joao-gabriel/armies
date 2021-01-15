@@ -17,6 +17,28 @@ function setCard(card, element, index) {
   element.attr('data-index', index);
 }
 
+function setMessage(){
+
+  let message = '';
+  if (yourBattlefield.wonBattle) {
+    message = 'Você ganhou causando ';
+    message += (yourBattlefield.totalPoints - enemyBattlefield.totalPoints).toString();
+    message += ' ponto(s) de dano'; 
+  }else if (enemyBattlefield.wonBattle) {
+    message = 'O inimigo ganhou causando ';
+    message += (enemyBattlefield.totalPoints - yourBattlefield.totalPoints).toString();
+    message += ' ponto(s) de dano';
+  }else{
+    message = 'Empate';
+  }
+  
+  message += yourBattlefield.feedbackMessage;
+  message += enemyBattlefield.feedbackMessage;
+  message += "!";
+
+  return message;
+}
+
 /*
 GAME MECHANICS
 */
@@ -60,7 +82,6 @@ function initDeck() {
   cavalaria.points = 3;
   cavalaria.description = "Sem efeito especial";
   cavalaria.image = "cavalaria.png";
-//  deck.push(cavalaria, cavalaria, cavalaria);
   for (let i = 0; i<6; i++){
     deck.push(cavalaria);
   }
@@ -75,6 +96,7 @@ function initDeck() {
   construtores.effectCallback = function(affectedBattlefield) {
     if (yourDamage > 1) {
       yourDamage--;
+          affectedBattlefield.feedbackMessage = " e recuperou 1 ponto de dano";
       return true;
     }
     return false;
@@ -82,7 +104,6 @@ function initDeck() {
   for (let i = 0; i<4; i++){
     deck.push(construtores);
   }
-  // deck.push(contrutores, contrutores);
 
   // 2 Catapultas
   let catapultas = { ...card };
@@ -101,7 +122,6 @@ function initDeck() {
   for (let i = 0; i<4; i++){
     deck.push(catapultas);
   }
-  deck.push(catapultas, catapultas);
 
   // 4 Sabotadores
   let sabotadores = { ...card };
@@ -112,7 +132,6 @@ function initDeck() {
   for (let i = 0; i<8; i++){
     deck.push(sabotadores);
   }
-  deck.push(sabotadores,sabotadores,sabotadores,sabotadores);
 
   // 1 Clérigo
   let clerigo = { ...card };
@@ -121,7 +140,7 @@ function initDeck() {
   clerigo.description = "Em caso de vitória, recupera a última carta descartada de Infantaria, Arqueiros, Cavalaria ou Construtores.";
   clerigo.image = "clerigo.png";  
   clerigo.effectTiming = "afterVictory";
-  clerigo.effectCallback = function(enemyBattlefield) {
+  clerigo.effectCallback = function(affectedBattlefield) {
     for (thisCard of yourDiscardPile){
       if (
           thisCard.name == "Infantaria" || 
@@ -130,7 +149,7 @@ function initDeck() {
           thisCard.name == "Construtores") {
           yourDeck.push(thisCard);
           // TODO: Retirar essa carta da pilha de descartes
-          alert("Você recuperou "+thisCard.name+"!");
+          affectedBattlefield.feedbackMessage = " e recuperou "+thisCard.name;
           return true;
       }
     }
@@ -139,7 +158,6 @@ function initDeck() {
   for (let i = 0; i<6; i++){
     deck.push(clerigo);
   }
-  // deck.push(clerigo);
 
   // 1 Desastre
 /* TODO: fazer com que nenhuma outra carta seja contabilizada nesse turno */
@@ -201,11 +219,13 @@ function resolveBattle(yourBattlefield, enemyBattlefield){
   enemyBattlefield.calcTotal();
 
   if (yourBattlefield.totalPoints > enemyBattlefield.totalPoints) {
+    yourBattlefield.wonBattle = true;
     enemyDamage = enemyDamage + (yourBattlefield.totalPoints - enemyBattlefield.totalPoints);
     for (thisAfterVictoryEffect of yourAfterVictoryEffects) {
       thisAfterVictoryEffect(enemyBattlefield);
     }
   }else if (yourBattlefield.totalPoints < enemyBattlefield.totalPoints) {
+    enemyBattlefield.wonBattle = true;
     yourDamage = yourDamage + (enemyBattlefield.totalPoints - yourBattlefield.totalPoints);
     for (thisAfterVictoryEffect of enemyAfterVictoryEffects) {
       thisAfterVictoryEffect(yourBattlefield);
@@ -252,6 +272,7 @@ function newTurn() {
   $('.remaining-cards').text(yourDeck.length);
   $('.your-damage').text(yourDamage);
   $('.enemy-damage').text(enemyDamage);
+  // TODO: show last discarded card turned up
   $('.discarded-cards').text(yourDiscardPile.length);
 }
 
@@ -294,7 +315,9 @@ var battlefield = {
     if (this.totalPoints < 0) {
       this.totalPoints = 0;
     }
-  }
+  },
+  feedbackMessage: "",
+  wonBattle: false
 }
 
 var yourDeck = shuffle(initDeck());
@@ -316,7 +339,8 @@ $('.game-card.in-hand').click(function(e){
   chooseEnemyCard(Math.floor(Math.random() * 3));
   resolveBattle(yourBattlefield, enemyBattlefield);
 
-  console.log(enemyBattlefield);
+  $('.alert').html(setMessage());
+
   let enemyCardDiv = $('.enemyBattlefield .battle-card');
   setCard(enemyBattlefield.cards[0], $(enemyCardDiv[0]), 0);
   setCard(enemyBattlefield.cards[1], $(enemyCardDiv[1]), 1);
