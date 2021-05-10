@@ -20,20 +20,20 @@ function setCard(card, element, index) {
 function setMessage(){
 
   let message = '';
-  if (yourBattlefield.wonBattle) {
+  if (you.battlefield.wonBattle) {
     message = 'Você ganhou causando ';
-    message += (yourBattlefield.totalPoints - enemyBattlefield.totalPoints).toString();
+    message += (you.battlefield.totalPoints - enemy.battlefield.totalPoints).toString();
     message += ' ponto(s) de dano'; 
-  }else if (enemyBattlefield.wonBattle) {
+  }else if (enemy.battlefield.wonBattle) {
     message = 'O inimigo ganhou causando ';
-    message += (enemyBattlefield.totalPoints - yourBattlefield.totalPoints).toString();
+    message += (enemy.battlefield.totalPoints - you.battlefield.totalPoints).toString();
     message += ' ponto(s) de dano';
   }else{
     message = 'Empate';
   }
   
-  message += yourBattlefield.feedbackMessage;
-  message += enemyBattlefield.feedbackMessage;
+  message += you.battlefield.feedbackMessage;
+  message += enemy.battlefield.feedbackMessage;
   message += "!";
 
   return message;
@@ -94,8 +94,8 @@ function initDeck() {
   construtores.image = "construtores.png";
   construtores.effectTiming = "afterVictory";
   construtores.effectCallback = function(affectedBattlefield) {
-    if (yourDamage > 1) {
-      yourDamage--;
+    if (you.damage > 1) {
+      you.damage--;
           affectedBattlefield.feedbackMessage = " e recuperou 1 ponto de dano";
       return true;
     }
@@ -141,13 +141,13 @@ function initDeck() {
   clerigo.image = "clerigo.png";  
   clerigo.effectTiming = "afterVictory";
   clerigo.effectCallback = function(affectedBattlefield) {
-    for (thisCard of yourDiscardPile){
+    for (thisCard of you.discardPile){
       if (
           thisCard.name == "Infantaria" || 
           thisCard.name == "Arqueiros" ||
           thisCard.name == "Cavalaria" || 
           thisCard.name == "Construtores") {
-          yourDeck.push(thisCard);
+          you.deck.push(thisCard);
           // TODO: Retirar essa carta da pilha de descartes
           affectedBattlefield.feedbackMessage = " e recuperou "+thisCard.name;
           return true;
@@ -167,13 +167,13 @@ function initDeck() {
   desastre.description = "Todas as cartas no campo de batalha são descartadas e ambas fortalezas sofrem 1 dano.";
   desastre.image = "desastre.png";
   desastre.effectTiming = "beforeBattle";
-  desastre.effectCallback = function(enemyBattlefield){
-    enemyBattlefield.cards[0].points = 0;
-    enemyBattlefield.cards[1].points = 0;
-    yourBattlefield.cards[0].points = 0;
-    yourBattlefield.cards[1].points = 0;
-    yourDamage++;
-    enemyDamage++;
+  desastre.effectCallback = function(affectedBattlefield, otherBattlefield){
+    affectedBattlefield.cards[0].points = 0;
+    affectedBattlefield.cards[1].points = 0;
+    otherBattlefield.cards[0].points = 0;
+    otherBattlefield.cards[1].points = 0;
+    you.damage++;
+    enemy.damage++;
     return true;
   };
 //  deck.push(desastre);  
@@ -193,101 +193,102 @@ function shuffle(array) {
   return array;
 }
 
-function resolveBattle(yourBattlefield, enemyBattlefield){
-  let yourAfterVictoryEffects = [];
-  let enemyAfterVictoryEffects = [];
-
-  for (let thisCard of yourBattlefield.cards) {
-    if (thisCard.effectTiming == "beforeBattle"){
-      thisCard.effectCallback(yourBattlefield, enemyBattlefield);
+function resolveBattle(){
+  
+  let afterVictoryEffects = [];
+  for (let thisCard of you.battlefield.cards) {
+    if (thisCard.effectTiming == "beforeBattle") {
+      thisCard.effectCallback(you.battlefield, enemy.battlefield);
     }
-    if (thisCard.effectTiming == "afterVictory"){
-      yourAfterVictoryEffects.push(thisCard.effectCallback);
+    if (thisCard.effectTiming == "afterVictory") {
+      afterVictoryEffects.push(thisCard.effectCallback);
+    }
+  }
+  you.battlefield.afterVictoryEffects = afterVictoryEffects;
+  you.battlefield.calcTotal();
+
+  afterVictoryEffects = [];
+  for (let thisCard of enemy.battlefield.cards) {
+    if (thisCard.effectTiming == "beforeBattle") {
+      thisCard.effectCallback(enemy.battlefield, you.battlefield);
+    }
+    if (thisCard.effectTiming == "afterVictory") {
+      afterVictoryEffects.push(thisCard.effectCallback);
+    }
+  }
+  enemy.battlefield.afterVictoryEffects = afterVictoryEffects;
+  enemy.battlefield.calcTotal();
+
+  if (you.battlefield.totalPoints > enemy.battlefield.totalPoints) {
+    you.battlefield.wonBattle = true;
+    enemy.damage = enemy.damage + (you.battlefield.totalPoints - enemy.battlefield.totalPoints);
+    for (thisAfterVictoryEffect of you.battlefield.afterVictoryEffects) {
+      thisAfterVictoryEffect(enemy.battlefield);
+    }
+  }else if (you.battlefield.totalPoints < enemy.battlefield.totalPoints) {
+    enemy.battlefield.wonBattle = true;
+    you.damage = you.damage + (enemy.battlefield.totalPoints - you.battlefield.totalPoints);
+    for (thisAfterVictoryEffect of enemy.battlefield.afterVictoryEffects) {
+      thisAfterVictoryEffect(you.battlefield);
     }
   }
 
-  for (let thisCard of enemyBattlefield.cards) {
-    if (thisCard.effectTiming == "beforeBattle"){
-      thisCard.effectCallback(enemyBattlefield, yourBattlefield);
-    }
-    if (thisCard.effectTiming == "afterVictory"){
-      enemyAfterVictoryEffects.push(thisCard.effectCallback);
-    }
-  }
-
-  yourBattlefield.calcTotal();
-  enemyBattlefield.calcTotal();
-
-  if (yourBattlefield.totalPoints > enemyBattlefield.totalPoints) {
-    yourBattlefield.wonBattle = true;
-    enemyDamage = enemyDamage + (yourBattlefield.totalPoints - enemyBattlefield.totalPoints);
-    for (thisAfterVictoryEffect of yourAfterVictoryEffects) {
-      thisAfterVictoryEffect(enemyBattlefield);
-    }
-  }else if (yourBattlefield.totalPoints < enemyBattlefield.totalPoints) {
-    enemyBattlefield.wonBattle = true;
-    yourDamage = yourDamage + (enemyBattlefield.totalPoints - yourBattlefield.totalPoints);
-    for (thisAfterVictoryEffect of enemyAfterVictoryEffects) {
-      thisAfterVictoryEffect(yourBattlefield);
-    }
-  }
-
-  for (let thisCard of yourBattlefield.cards) {
-    yourDiscardPile.push(thisCard);
+  for (let thisCard of you.battlefield.cards) {
+    you.discardPile.push(thisCard);
     setCard(thisCard, $('.discarded-top-card'), 0);
   }
 
-  for (let thisCard of enemyBattlefield.cards) {
-    enemyDiscardPile.push(thisCard);
+  for (let thisCard of enemy.battlefield.cards) {
+    enemy.discardPile.push(thisCard);
   }
 
 }
 
 function newTurn() {
   
-  if (yourDamage > 14 || yourDeck.length < 3) {
+  if (you.damage > 12 || you.deck.length < 3) {
     alert("Você perdeu!");
     window.location.reload();
     return false;
-  } else if (enemyDamage  > 14 || enemyDeck.length < 3) {
+  } else if (enemy.damage  > 12 || enemy.deck.length < 3) {
     alert("Você ganhou!");
     window.location.reload();
     return false;
   }
 
   // TODO: check if decks are over
-  yourBattlefield = { ...battlefield };
-  enemyBattlefield = { ...battlefield };
+  you.battlefield = { ...battlefield };
+  enemy.battlefield = { ...battlefield };
   
   // TODO: populate hands inside a loop to make it possible to fill hands with less than 3 cards
-  yourHand = [yourDeck.pop(), yourDeck.pop(), yourDeck.pop()];
-  enemyHand = [enemyDeck.pop(), enemyDeck.pop(), enemyDeck.pop()];
+  you.hand = [you.deck.pop(), you.deck.pop(), you.deck.pop()];
+  enemy.hand = [enemy.deck.pop(), enemy.deck.pop(), enemy.deck.pop()];
   i=0;
-  for (item of yourHand) {
+  for (item of you.hand) {
     let thisCardDiv = $('.your-hand > div:nth-child('+(i+1)+') .game-card.in-hand');
     setCard(item, thisCardDiv, i);
     i++;
   }
 
-  $('.remaining-cards').text(yourDeck.length);
-  $('.your-damage').text(yourDamage);
-  $('.enemy-damage').text(enemyDamage);
+  $('.remaining-cards').text(you.deck.length);
+  $('.your-damage').text(you.damage);
+  $('.enemy-damage').text(enemy.damage);
   // TODO: show last discarded card turned up
-  $('.discarded-cards').text(yourDiscardPile.length);
+  $('.discarded-cards').text(you.discardPile.length);
 }
 
 function chooseYourCard(cardIndex){
-  yourDeck.push(yourHand[cardIndex]);
-  yourHand.splice(cardIndex, 1);
-  yourBattlefield.cards = yourHand;
-  yourHand = [];
+  you.deck.push(you.hand[cardIndex]);
+  you.hand.splice(cardIndex, 1);
+  you.battlefield.cards = you.hand;
+  you.hand = [];
 }
 
 function chooseEnemyCard(cardIndex){
-  enemyDeck.push(enemyHand[cardIndex]);
-  enemyHand.splice(cardIndex, 1);
-  enemyBattlefield.cards = enemyHand;
-  enemyHand = [];
+  enemy.deck.push(enemy.hand[cardIndex]);
+  enemy.hand.splice(cardIndex, 1);
+  enemy.battlefield.cards = enemy.hand;
+  enemy.hand = [];
 }
 
 /* 
@@ -301,7 +302,7 @@ var card = {
   effectTiming : "", // beforeBattle, afterVictory
   effectCallback : function() { return false; },
   effectInterruptTurn : false
-}
+};
 
 var battlefield = {
   cards : [],
@@ -316,40 +317,49 @@ var battlefield = {
       this.totalPoints = 0;
     }
   },
+  afterVictoryEffects: [],
   feedbackMessage: "",
   wonBattle: false
-}
+};
 
-var yourDeck = shuffle(initDeck());
-var yourHand = [];
-var yourBattlefield;
-var yourDamage = 0;
-var yourDiscardPile = [];
+var player = {
+  deck: {},
+  hand: [],
+  damage: 0,
+  damageLimit: 12,
+  discardPile: []
+};
 
-var enemyDeck = shuffle(initDeck());
-var enemyHand = [];
-var enemyBattlefield; 
-var enemyDamage = 0;
-var enemyDiscardPile = [];
+var you = { ...player};
+you.deck = shuffle(initDeck());
+
+var enemy = { ...player};
+enemy.deck = shuffle(initDeck());
+
+// It may be useful for loops (?)
+var players = [you, enemy];
+
+$('.your-damage-limit').text(you.damageLimit);
+$('.enemy-damage-limit').text(enemy.damageLimit);
 
 newTurn();
 
 $('.game-card.in-hand').click(function(e){
   chooseYourCard($(this).data('index'));
   chooseEnemyCard(Math.floor(Math.random() * 3));
-  resolveBattle(yourBattlefield, enemyBattlefield);
+  resolveBattle(you.battlefield, enemy.battlefield);
 
   $('.alert').html(setMessage());
 
   let enemyCardDiv = $('.enemyBattlefield .battle-card');
-  setCard(enemyBattlefield.cards[0], $(enemyCardDiv[0]), 0);
-  setCard(enemyBattlefield.cards[1], $(enemyCardDiv[1]), 1);
-  $('.enemyPoints').text(enemyBattlefield.totalPoints);
+  setCard(enemy.battlefield.cards[0], $(enemyCardDiv[0]), 0);
+  setCard(enemy.battlefield.cards[1], $(enemyCardDiv[1]), 1);
+  $('.enemyPoints').text(enemy.battlefield.totalPoints);
 
   let yourCardDiv = $('.yourBattlefield .battle-card');
-  setCard(yourBattlefield.cards[0], $(yourCardDiv[0]), 0);
-  setCard(yourBattlefield.cards[1], $(yourCardDiv[1]), 1);
-  $('.yourPoints').text(yourBattlefield.totalPoints);
+  setCard(you.battlefield.cards[0], $(yourCardDiv[0]), 0);
+  setCard(you.battlefield.cards[1], $(yourCardDiv[1]), 1);
+  $('.yourPoints').text(you.battlefield.totalPoints);
   
   $('#myModal').modal('show');
 });
