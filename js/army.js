@@ -233,14 +233,17 @@ function resolveBattle(){
     }
   }
 
-  for (let thisCard of you.battlefield.cards) {
-    you.discardPile.push(thisCard);
-    setCard(thisCard, $('.discarded-top-card'), 0);
+  let discardPile = [ ...you.discardPile];
+  for (let thisCard of you.battlefield.cards) {    
+    discardPile.push(thisCard);
   }
+  you.discardPile = discardPile;
 
+  discardPile = [ ...enemy.discardPile];
   for (let thisCard of enemy.battlefield.cards) {
-    enemy.discardPile.push(thisCard);
+    discardPile.push(thisCard);
   }
+  enemy.discardPile = discardPile;
 
 }
 
@@ -274,6 +277,10 @@ function newTurn() {
   $('.your-damage').text(you.damage);
   $('.enemy-damage').text(enemy.damage);
   // TODO: show last discarded card turned up
+  if (you.discardPile.length > 0) {
+    $('.discarded-top-card').removeClass('card-placeholder').find('.card-data').css({visibility: "visible"});
+    setCard(you.discardPile[(you.discardPile.length-1)], $('.discarded-top-card'), 0);
+  }  
   $('.discarded-cards').text(you.discardPile.length);
 }
 
